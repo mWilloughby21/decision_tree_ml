@@ -24,7 +24,7 @@ def get_file_info(path):
         else:             # Define training data
             training_data.append(row)
     
-    return n, attributes, labels, training_data
+    return attributes, labels, training_data
 
 def calc_labels(training_data):
     result = {}
@@ -36,12 +36,82 @@ def calc_labels(training_data):
             result[record[-1]] += 1
     return result
 
-def calc_entropy(training_data):
+def calc_entropy(values):
+    total = 0
+    
+    for value in values:
+        p = value / sum(values)
+        if p > 0:
+            total -= p * m.log2(p)
+    
+    return total
+
+def entropy_from_training(training_data):
     total = 0
     n = len(training_data)
-    label_count = calc_labels(training_data)
+    label_amounts = calc_labels(training_data)
     
-    for amount in label_count.values():
+    for amount in label_amounts.values():
         p = amount / n
         total -= p * m.log2(p)
     return total
+
+def entropy_from_dicts(attribute_counts):
+    result = {}
+    
+    for i, attribute in enumerate(attribute_counts.values()):
+        total = 0
+        n = 0
+        
+        for values in attribute.values():
+            for value in values:
+                n += value
+        for values in attribute.values():
+            total += (sum(values) / n) * calc_entropy(values)
+        result[list(attribute_counts.keys())[i]] = total
+    return result
+
+def create_attribute_info_dict(attributes, training_data, labels):
+    result = {}
+    
+    for i, (key, attribute) in enumerate(attributes.items()):
+        value_counts = {}
+        
+        for value in attribute:
+            value_counts[value] = [0] * len(labels)
+            
+        for record in training_data:
+            value = record[i]
+            ans = int(record[-1])
+            value_counts[value][ans] += 1
+        
+        result[key] = value_counts
+    return result
+
+def calc_attribute_info(attributes, training_data, labels):
+    attribute_counts = create_attribute_info_dict(attributes, training_data, labels)
+    entropy = entropy_from_dicts(attribute_counts)
+    return entropy
+
+def calc_gain(entropy, attribute_info):
+    result = {}
+    for (key, value) in attribute_info.items():
+        result[key] = entropy - value
+    return result
+
+def print_tree(tree_order, attributes, indent=0):
+    keys = list(tree_order.keys())
+    
+    if not keys:
+        return
+    
+    attribute = keys[0]
+    remaining = dict(list(tree_order.items())[1:])
+    
+    for i, value in enumerate(attributes[attribute]):
+        print(" " * indent + f"{attribute}={value}: ({tree_order[attribute]})")
+        
+        if remaining:
+            print_tree(remaining, attributes, indent + 2)
+        else:
+            print(" " * (indent + 2) + "label")
