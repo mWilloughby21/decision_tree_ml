@@ -13,20 +13,17 @@ def main():
     
     # Parse Data
     attributes, labels, training_data = get_file_info(FILE_PATH)
-    print("Attributes:", attributes)
-    print("Labels:", labels)
-    print("Training Data:", training_data)
-    print()
     
     # Calculate entropy
     entropy = entropy_from_training(training_data)
     
     original_attributes = attributes.copy()
+    print_attributes = attributes.copy()
+    original_attributes_list = list(attributes.keys())
     while attributes:
-        print("Attributes: ", attributes)
         # Calculate each attribute info
-        attribute_info = calc_attribute_info(attributes, training_data, labels)
-        
+        attribute_info, attributes = calc_attribute_info(attributes, training_data, labels, original_attributes_list, original_attributes)
+        print_attributes.update(attributes)
         # Gain for each attribute
         attribute_gain = calc_gain(entropy, attribute_info)
         
@@ -41,7 +38,7 @@ def main():
             tree_order[key] = value
             attributes.pop(key)
     
-    print_tree(tree_order, original_attributes, training_data)
+    print_tree(tree_order, print_attributes, training_data)
 
 if __name__ == "__main__":
     main()

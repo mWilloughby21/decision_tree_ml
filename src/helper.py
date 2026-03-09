@@ -38,6 +38,8 @@ def calc_labels(training_data):
 
 def calc_entropy(values):
     total = 0
+    if sum(values) == 0:
+        return 0
     
     for value in values:
         p = value / sum(values)
@@ -71,27 +73,33 @@ def entropy_from_dicts(attribute_counts):
         result[list(attribute_counts.keys())[i]] = total
     return result
 
-def create_attribute_info_dict(attributes, training_data, labels):
+def create_attribute_info_dict(attributes, training_data, labels, original_attributes_list, original_attributes):
     result = {}
     
-    for i, (key, attribute) in enumerate(attributes.items()):
-        value_counts = {}
+    for key in attributes.keys():
+        attribute_index = original_attributes_list.index(key)
+        attribute_values = attributes[key]
         
-        for value in attribute:
-            value_counts[value] = [0] * len(labels)
+        # Continuous attribute
+        if original_attributes[key] == ['continuous']:
+            value_counts = best_split_continuous(key, training_data, labels, attribute_index)
+            attributes[key] = list(value_counts.keys())
+        # Categorical attribute
+        else:
+            value_counts = {v: [0] * len(labels) for v in attribute_values}
             
-        for record in training_data:
-            value = record[i]
-            ans = int(record[-1])
-            value_counts[value][ans] += 1
+            for record in training_data:
+                value = record[attribute_index]
+                ans = labels.index(record[-1])
+                value_counts[value][ans] += 1
         
         result[key] = value_counts
-    return result
+    return result, attributes
 
-def calc_attribute_info(attributes, training_data, labels):
-    attribute_counts = create_attribute_info_dict(attributes, training_data, labels)
+def calc_attribute_info(attributes, training_data, labels, original_attributes_list, original_attributes):
+    attribute_counts, attributes = create_attribute_info_dict(attributes, training_data, labels, original_attributes_list, original_attributes)
     entropy = entropy_from_dicts(attribute_counts)
-    return entropy
+    return entropy, attributes
 
 def calc_gain(entropy, attribute_info):
     result = {}
@@ -120,7 +128,18 @@ def print_tree(tree_order, attributes, training_data, indent=0):
     remaining = dict(list(tree_order.items())[1:])
     
     for value in attributes[attribute]:
-        subset = [row for row in training_data if row[attribute_index] == value]
+        if attributes[attribute][0] == "continuous":
+            try:
+                if "<=" in value:
+                    threshold = float(value.split("<=")[1])
+                    subset = [row for row in training_data if float(row[attribute_index]) <= threshold]
+                else:
+                    threshold = float(value.split(">")[1])
+                    subset = [row for row in training_data if float(row[attribute_index]) > threshold]
+            except ValueError:
+                subset = [row for row in training_data if row[attribute_index] == value]
+        else:
+            subset = [row for row in training_data if row[attribute_index] == value]
         
         if not subset:
             label = majority_label(training_data)
@@ -135,3 +154,46 @@ def print_tree(tree_order, attributes, training_data, indent=0):
         else:
             label = majority_label(subset)
             print(" " * (indent + 2) + label)
+
+def best_split_continuous(attribute_name, training_data, labels, attribute_index):
+    values = [(float(row[attribute_index]), row[-1]) for row in training_data]
+    values.sort(key=lambda x: x[0])
+    
+    # Find candidates for split
+    candidates = []
+    for i in range(len(values) - 1):
+        if values[i][1] != values[i+1][1]:
+            candidates.append((values[i][0] + values[i + 1][0]) / 2)
+    
+    best_gain = -1
+    best_split = None
+    total = entropy_from_training(training_data)
+    
+    # Determine split
+    for split in candidates:
+        left = [row for row in training_data if float(row[attribute_index]) <= split]
+        right = [row for row in training_data if float(row[attribute_index]) > split]
+        
+        n = len(training_data)
+        entropy = (len(left) / n) * entropy_from_training(left) + (len(right) / n) * entropy_from_training(right)
+        gain = total - entropy
+        if gain > best_gain:
+            best_gain = gain
+            best_split = split
+    
+    # Format value counts
+    left_counts = [0] * len(labels)
+    right_counts = [0] * len(labels)
+    for row in training_data:
+        idx = labels.index(row[-1])
+        if float(row[attribute_index]) <= best_split:
+            left_counts[idx] += 1
+        else:
+            right_counts[idx] += 1
+    
+    value_counts = {
+        f"{attribute_name} <= {best_split}": left_counts,
+        f"{attribute_name} > {best_split}": right_counts
+    }
+    
+    return value_counts
