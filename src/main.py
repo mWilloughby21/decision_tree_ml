@@ -41,7 +41,7 @@ def main():
             tree_order[key] = value
             attributes.pop(key)
     
-    print_tree(tree_order, original_attributes)
+    print_tree(tree_order, original_attributes, training_data)
 
 if __name__ == "__main__":
     main()

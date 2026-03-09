@@ -99,19 +99,39 @@ def calc_gain(entropy, attribute_info):
         result[key] = entropy - value
     return result
 
-def print_tree(tree_order, attributes, indent=0):
+def majority_label(training_data):
+    counts = {}
+    
+    for record in training_data:
+        label = record[-1]
+        counts[label] = counts.get(label, 0) + 1
+    
+    return max(counts, key=counts.get)
+
+def print_tree(tree_order, attributes, training_data, indent=0):
     keys = list(tree_order.keys())
     
     if not keys:
         return
     
     attribute = keys[0]
+    attribute_index = list(attributes.keys()).index(attribute)
+    
     remaining = dict(list(tree_order.items())[1:])
     
-    for i, value in enumerate(attributes[attribute]):
+    for value in attributes[attribute]:
+        subset = [row for row in training_data if row[attribute_index] == value]
+        
+        if not subset:
+            label = majority_label(training_data)
+            print(" " * indent + f"{attribute}={value}: ({tree_order[attribute]})")
+            print(" " * (indent + 2) + label)
+            continue
+        
         print(" " * indent + f"{attribute}={value}: ({tree_order[attribute]})")
         
         if remaining:
-            print_tree(remaining, attributes, indent + 2)
+            print_tree(remaining, attributes, subset, indent + 2)
         else:
-            print(" " * (indent + 2) + "label")
+            label = majority_label(subset)
+            print(" " * (indent + 2) + label)
